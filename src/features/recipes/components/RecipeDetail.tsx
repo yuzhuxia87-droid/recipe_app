@@ -6,6 +6,7 @@ import { Recipe } from '../types/recipe.types'
 import { Button } from '@/shared/components/Button'
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner'
 import { useRecipes } from '../hooks/useRecipes'
+import { HandDrawnUnderline } from '@/shared/components/notebook/HandDrawnUnderline'
 
 export function RecipeDetail() {
   const { id } = useParams<{ id: string }>()
@@ -72,27 +73,40 @@ export function RecipeDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-notebook-cream py-6 px-4">
+    <div className="min-h-screen bg-notebook-page-white bg-grid-paper bg-grid bg-opacity-15 relative">
       <div className="max-w-2xl mx-auto">
+        {/* ページヘッダー */}
+        <div className="pt-12 pb-8 px-6">
+          <h1 className="text-note-2xl md:text-note-3xl font-handwriting font-medium text-notebook-ink text-center mb-3">
+            Recipe Details
+          </h1>
+          <div className="flex justify-center mb-2">
+            <HandDrawnUnderline width="md" color="#5C5446" />
+          </div>
+          <p className="text-note-xs text-notebook-ink-light text-center font-handwriting opacity-70">
+            cooking notes
+          </p>
+        </div>
+
         {/* 戻るボタン */}
-        <div className="mb-4">
+        <div className="mb-6 px-6">
           <Button variant="secondary" onClick={() => navigate('/')}>
             ← 一覧に戻る
           </Button>
         </div>
 
         {/* カード積み重ね型レイアウト */}
-        <div className="space-y-4">
+        <div className="px-6 pb-8 space-y-6">
           {/* タイトルカード */}
-          <div className="bg-notebook-white rounded-card shadow-card p-6 relative">
+          <div className="bg-notebook-card rounded-card shadow-card p-6 relative">
             {/* マスキングテープ装飾 */}
             <div
               className="absolute -top-2 right-8 w-20 h-6 opacity-60 rotate-[2deg] rounded-sm shadow-sm"
               style={{ background: '#FFE55C' }}
             />
-            <h1 className="text-3xl md:text-4xl font-handwriting text-notebook-ink mb-3 leading-relaxed">
+            <h2 className="text-note-2xl md:text-note-3xl font-handwriting text-notebook-ink mb-3 leading-relaxed">
               {recipe.title}
-            </h1>
+            </h2>
             <div className="flex flex-wrap gap-4 text-sm text-notebook-ink-light font-sans">
               <span>
                 {new Date(recipe.created_at).toLocaleDateString('ja-JP', {
@@ -120,7 +134,7 @@ export function RecipeDetail() {
 
           {/* 画像カード */}
           {(recipe.illustrated_url || recipe.image_url) && (
-            <div className="bg-notebook-white rounded-card shadow-card p-4 relative -rotate-[0.5deg]">
+            <div className="bg-notebook-card rounded-card shadow-card p-4 relative -rotate-[0.5deg]">
               <div
                 className="absolute -top-2 left-8 w-20 h-6 opacity-60 rotate-[-2deg] rounded-sm shadow-sm"
                 style={{ background: '#A8D8EA' }}
@@ -134,12 +148,12 @@ export function RecipeDetail() {
           )}
 
           {/* 材料カード */}
-          <div className="bg-notebook-white rounded-card shadow-card p-6 relative rotate-[0.3deg]">
+          <div className="bg-notebook-card rounded-card shadow-card p-6 relative rotate-[0.3deg]">
             <div
               className="absolute -top-2 right-10 w-20 h-6 opacity-60 rotate-[2deg] rounded-sm shadow-sm"
               style={{ background: '#FFB6C1' }}
             />
-            <h2 className="text-2xl font-handwriting text-notebook-ink mb-4 pb-2 border-b-2 border-notebook-border">
+            <h2 className="text-note-xl font-handwriting text-notebook-ink mb-4 pb-2 border-b-2 border-notebook-border">
               材料
             </h2>
             <ul className="space-y-2">
@@ -156,12 +170,12 @@ export function RecipeDetail() {
           </div>
 
           {/* 手順カード */}
-          <div className="bg-notebook-white rounded-card shadow-card p-6 relative -rotate-[0.4deg]">
+          <div className="bg-notebook-card rounded-card shadow-card p-6 relative -rotate-[0.4deg]">
             <div
               className="absolute -top-2 left-12 w-20 h-6 opacity-60 rotate-[-2deg] rounded-sm shadow-sm"
               style={{ background: '#B8E6B8' }}
             />
-            <h2 className="text-2xl font-handwriting text-notebook-ink mb-4 pb-2 border-b-2 border-notebook-border">
+            <h2 className="text-note-xl font-handwriting text-notebook-ink mb-4 pb-2 border-b-2 border-notebook-border">
               手順
             </h2>
             <ol className="space-y-4">
@@ -178,8 +192,8 @@ export function RecipeDetail() {
 
           {/* メモカード（付箋風） */}
           {recipe.memo && (
-            <div className="bg-[#FFF9E6] rounded-card shadow-card p-6 relative rotate-[0.6deg] border-l-4 border-notebook-accent">
-              <h2 className="text-2xl font-handwriting text-notebook-ink mb-4">メモ</h2>
+            <div className="bg-notebook-highlight rounded-card shadow-card p-6 relative rotate-[0.6deg] border-l-4 border-notebook-accent">
+              <h2 className="text-note-xl font-handwriting text-notebook-ink mb-4">メモ</h2>
               <p className="font-handwriting text-notebook-ink leading-relaxed whitespace-pre-wrap">
                 {recipe.memo}
               </p>

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRecipes } from '../hooks/useRecipes'
 import { useRecipeStore } from '@/store/recipeStore'
@@ -6,10 +7,18 @@ import { SearchBar } from './SearchBar'
 import { LoadingSpinner } from '@/shared/components/LoadingSpinner'
 import { HandDrawnUnderline } from '@/shared/components/notebook/HandDrawnUnderline'
 
+type TabType = 'all' | 'favorites'
+
 export function RecipeList() {
   const { recipes, allRecipes, searchQuery, searchRecipes, clearSearch } = useRecipes()
   const { isLoading, toggleFavorite } = useRecipeStore()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<TabType>('all')
+
+  // タブに応じてレシピをフィルタリング
+  const displayedRecipes = activeTab === 'favorites'
+    ? recipes.filter(recipe => recipe.favorite)
+    : recipes
 
   // レシピが本当に0件の場合（初期状態）
   if (allRecipes.length === 0 && !isLoading) {
@@ -44,8 +53,47 @@ export function RecipeList() {
         </div>
 
         {/* 検索バー */}
-        <div className="mb-8 px-6">
+        <div className="mb-6 px-6">
           <SearchBar onSearch={searchRecipes} onClear={clearSearch} />
+        </div>
+
+        {/* タブ切り替え */}
+        <div className="mb-8 px-6">
+          <div className="flex gap-2 border-b-2 border-notebook-border">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`
+                px-4 py-2 font-handwriting text-note-base transition-colors relative
+                ${activeTab === 'all'
+                  ? 'text-notebook-ink font-medium'
+                  : 'text-notebook-ink-light hover:text-notebook-ink'
+                }
+              `}
+            >
+              すべて
+              {activeTab === 'all' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-notebook-accent" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('favorites')}
+              className={`
+                px-4 py-2 font-handwriting text-note-base transition-colors relative flex items-center gap-1
+                ${activeTab === 'favorites'
+                  ? 'text-notebook-ink font-medium'
+                  : 'text-notebook-ink-light hover:text-notebook-ink'
+                }
+              `}
+            >
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 01-1.162-.682 22.045 22.045 0 01-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 018-2.828A4.5 4.5 0 0118 7.5c0 2.852-2.045 5.233-3.885 6.82a22.049 22.049 0 01-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 01-.69.001z" />
+              </svg>
+              お気に入り
+              {activeTab === 'favorites' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-notebook-accent" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* ローディング中 */}
@@ -65,11 +113,21 @@ export function RecipeList() {
           </div>
         )}
 
+        {/* お気に入りが0件の場合 */}
+        {!isLoading && activeTab === 'favorites' && displayedRecipes.length === 0 && !searchQuery && (
+          <div className="text-center py-16">
+            <p className="text-2xl font-handwriting text-notebook-ink mb-2">
+              お気に入りがまだありません
+            </p>
+            <p className="text-notebook-ink-light font-handwriting">ハートマークをクリックしてお気に入りを追加しましょう</p>
+          </div>
+        )}
+
         {/* レシピグリッド（モバイル2カラム Pinterest風） */}
-        {!isLoading && recipes.length > 0 && (
+        {!isLoading && displayedRecipes.length > 0 && (
           <div className="px-6">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-card-gap md:gap-card-gap-md items-start">
-              {recipes.map((recipe) => (
+              {displayedRecipes.map((recipe) => (
                 <RecipeCard
                   key={recipe.id}
                   recipe={recipe}
