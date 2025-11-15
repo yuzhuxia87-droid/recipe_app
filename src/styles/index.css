@@ -3,7 +3,28 @@
 @tailwind utilities;
 
 @layer base {
+  /* iOS Safari タッチスクロール対応 */
+  html {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   body {
-    @apply font-sans bg-paper text-ink;
+    @apply font-sans text-notebook-ink;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+
+    /* 手帳風の背景色（シンプル） */
+    background-color: #FAF7F0;
+  }
+
+  /* ルート要素もスクロール可能に */
+  #root {
+    min-height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

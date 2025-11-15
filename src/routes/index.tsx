@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { RecipeList } from '@/features/recipes/components/RecipeList'
 import { RecipeForm } from '@/features/recipes/components/RecipeForm'
 import { RecipeDetail } from '@/features/recipes/components/RecipeDetail'
+import { AdminTools } from '@/features/recipes/components/AdminTools'
 
 export const router = createBrowserRouter([
   {
@@ -15,5 +16,9 @@ export const router = createBrowserRouter([
   {
     path: '/recipes/:id',
     element: <RecipeDetail />,
+  },
+  {
+    path: '/admin',
+    element: <AdminTools />,
   },
 ])

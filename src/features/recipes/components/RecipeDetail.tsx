@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { recipeService } from '../services/recipeService'
 import { Recipe } from '../types/recipe.types'
 import { Button } from '@/shared/components/Button'
@@ -25,14 +26,14 @@ export function RecipeDetail() {
         setIsLoading(true)
         const data = await recipeService.getById(id)
         if (!data) {
-          alert('レシピが見つかりませんでした')
+          toast.error('レシピが見つかりませんでした')
           navigate('/')
           return
         }
         setRecipe(data)
       } catch (error) {
         console.error('レシピ取得エラー:', error)
-        alert('レシピの取得に失敗しました')
+        toast.error('レシピの取得に失敗しました')
         navigate('/')
       } finally {
         setIsLoading(false)
@@ -52,9 +53,11 @@ export function RecipeDetail() {
     try {
       setIsDeleting(true)
       await deleteRecipe(recipe.id)
+      toast.success('レシピを削除しました')
       navigate('/')
-    } catch (error) {
-      alert('レシピの削除に失敗しました')
+    } catch (err) {
+      console.error('レシピ削除エラー:', err)
+      toast.error('レシピの削除に失敗しました')
     } finally {
       setIsDeleting(false)
     }
@@ -69,8 +72,8 @@ export function RecipeDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-paper py-8">
-      <div className="max-w-4xl mx-auto p-6">
+    <div className="min-h-screen bg-notebook-cream py-6 px-4">
+      <div className="max-w-2xl mx-auto">
         {/* 戻るボタン */}
         <div className="mb-4">
           <Button variant="secondary" onClick={() => navigate('/')}>
@@ -78,93 +81,114 @@ export function RecipeDetail() {
           </Button>
         </div>
 
-        {/* レシピカード */}
-        <div className="bg-white shadow-lg rounded-lg border-2 border-accent/20 p-8">
-          {/* タイトル */}
-          <h1 className="text-4xl font-handwriting text-ink mb-4">{recipe.title}</h1>
-
-          {/* メタ情報 */}
-          <div className="flex gap-4 text-sm text-gray-600 mb-6">
-            <span>
-              作成日:{' '}
-              {new Date(recipe.created_at).toLocaleDateString('ja-JP', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </span>
-            {recipe.servings && <span>分量: {recipe.servings}</span>}
+        {/* カード積み重ね型レイアウト */}
+        <div className="space-y-4">
+          {/* タイトルカード */}
+          <div className="bg-notebook-white rounded-card shadow-card p-6 relative">
+            {/* マスキングテープ装飾 */}
+            <div
+              className="absolute -top-2 right-8 w-20 h-6 opacity-60 rotate-[2deg] rounded-sm shadow-sm"
+              style={{ background: '#FFE55C' }}
+            />
+            <h1 className="text-3xl md:text-4xl font-handwriting text-notebook-ink mb-3 leading-relaxed">
+              {recipe.title}
+            </h1>
+            <div className="flex flex-wrap gap-4 text-sm text-notebook-ink-light font-sans">
+              <span>
+                {new Date(recipe.created_at).toLocaleDateString('ja-JP', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </span>
+              {recipe.servings && <span>分量: {recipe.servings}</span>}
+            </div>
+            {/* タグ */}
+            {recipe.tags && recipe.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {recipe.tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 text-sm rounded-full bg-notebook-accent-light text-notebook-ink font-handwriting"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* 画像 */}
-          {recipe.image_url && (
-            <div className="mb-6">
+          {/* 画像カード */}
+          {(recipe.illustrated_url || recipe.image_url) && (
+            <div className="bg-notebook-white rounded-card shadow-card p-4 relative -rotate-[0.5deg]">
+              <div
+                className="absolute -top-2 left-8 w-20 h-6 opacity-60 rotate-[-2deg] rounded-sm shadow-sm"
+                style={{ background: '#A8D8EA' }}
+              />
               <img
-                src={recipe.image_url}
+                src={recipe.illustrated_url || recipe.image_url || ''}
                 alt={recipe.title}
-                className="w-full h-auto rounded-lg border-2 border-accent/20"
+                className="w-full h-auto rounded-lg"
               />
             </div>
           )}
 
-          {/* タグ */}
-          {recipe.tags && recipe.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-6">
-              {recipe.tags.map((tag, index) => (
-                <span key={index} className="badge badge-outline">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* 材料 */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-ink mb-4 border-b-2 border-accent/30 pb-2">
+          {/* 材料カード */}
+          <div className="bg-notebook-white rounded-card shadow-card p-6 relative rotate-[0.3deg]">
+            <div
+              className="absolute -top-2 right-10 w-20 h-6 opacity-60 rotate-[2deg] rounded-sm shadow-sm"
+              style={{ background: '#FFB6C1' }}
+            />
+            <h2 className="text-2xl font-handwriting text-notebook-ink mb-4 pb-2 border-b-2 border-notebook-border">
               材料
             </h2>
             <ul className="space-y-2">
               {recipe.ingredients.map((ingredient, index) => (
-                <li key={index} className="flex justify-between py-2 border-b border-gray-200">
-                  <span>{ingredient.name}</span>
-                  <span className="font-semibold">{ingredient.amount}</span>
+                <li
+                  key={index}
+                  className="flex justify-between items-center py-2 border-b border-notebook-border/30 last:border-0"
+                >
+                  <span className="font-sans text-notebook-ink">{ingredient.name}</span>
+                  <span className="font-handwriting text-notebook-ink font-semibold">{ingredient.amount}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* 手順 */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-ink mb-4 border-b-2 border-accent/30 pb-2">
+          {/* 手順カード */}
+          <div className="bg-notebook-white rounded-card shadow-card p-6 relative -rotate-[0.4deg]">
+            <div
+              className="absolute -top-2 left-12 w-20 h-6 opacity-60 rotate-[-2deg] rounded-sm shadow-sm"
+              style={{ background: '#B8E6B8' }}
+            />
+            <h2 className="text-2xl font-handwriting text-notebook-ink mb-4 pb-2 border-b-2 border-notebook-border">
               手順
             </h2>
             <ol className="space-y-4">
               {recipe.steps.map((step, index) => (
                 <li key={index} className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center font-bold">
+                  <div className="flex-shrink-0 w-8 h-8 bg-notebook-accent text-white rounded-full flex items-center justify-center font-handwriting font-bold text-sm shadow-sm">
                     {index + 1}
                   </div>
-                  <p className="flex-1 pt-1">{step}</p>
+                  <p className="flex-1 pt-1 font-sans text-notebook-ink leading-relaxed">{step}</p>
                 </li>
               ))}
             </ol>
           </div>
 
-          {/* メモ */}
+          {/* メモカード（付箋風） */}
           {recipe.memo && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-ink mb-4 border-b-2 border-accent/30 pb-2">
-                メモ
-              </h2>
-              <div className="bg-cream p-4 rounded-lg">
-                <p className="whitespace-pre-wrap">{recipe.memo}</p>
-              </div>
+            <div className="bg-[#FFF9E6] rounded-card shadow-card p-6 relative rotate-[0.6deg] border-l-4 border-notebook-accent">
+              <h2 className="text-2xl font-handwriting text-notebook-ink mb-4">メモ</h2>
+              <p className="font-handwriting text-notebook-ink leading-relaxed whitespace-pre-wrap">
+                {recipe.memo}
+              </p>
             </div>
           )}
 
           {/* アクションボタン */}
-          <div className="flex gap-4 pt-6 border-t-2 border-gray-200">
-            <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
+          <div className="flex gap-3 pt-4">
+            <Button variant="danger" onClick={handleDelete} disabled={isDeleting} className="flex-1">
               {isDeleting ? '削除中...' : '削除'}
             </Button>
           </div>
