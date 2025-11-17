@@ -1,10 +1,12 @@
-import { useState, FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, FormEvent, useRef, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { Bot, X } from 'lucide-react'
 import { useRecipes } from '../hooks/useRecipes'
 import { Ingredient } from '../types/recipe.types'
 import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/shared/components/Accordion'
 import { ImageUpload } from './ImageUpload'
 import { RecipeScreenshotUpload } from './RecipeScreenshotUpload'
 import { imageService } from '../services/imageService'
@@ -12,14 +14,16 @@ import { visionService } from '../services/visionService'
 import { unsplashService } from '../services/unsplashService'
 import { illustrationService } from '../services/illustrationService'
 
-type InputMode = 'manual' | 'ai'
-
 export function RecipeForm() {
   const navigate = useNavigate()
-  const { createRecipe } = useRecipes()
+  const { id } = useParams<{ id: string }>()
+  const { createRecipe, updateRecipe, getRecipeById } = useRecipes()
 
-  // 入力モード
-  const [inputMode, setInputMode] = useState<InputMode>('manual')
+  // 編集モード判定
+  const isEditMode = !!id
+
+  // レシピ情報セクションへの参照
+  const recipeFormSectionRef = useRef<HTMLDivElement>(null)
 
   // フォームデータ
   const [title, setTitle] = useState('')
@@ -29,12 +33,51 @@ export function RecipeForm() {
   const [steps, setSteps] = useState<string[]>([''])
   const [memo, setMemo] = useState('')
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null)
 
   // AI抽出用
   const [screenshots, setScreenshots] = useState<File[]>([])
   const [isExtracting, setIsExtracting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
+  const [isLoadingRecipe, setIsLoadingRecipe] = useState(false)
+
+  // 編集モード: 既存レシピをロード
+  useEffect(() => {
+    if (!isEditMode || !id) return
+
+    const loadRecipe = async () => {
+      try {
+        setIsLoadingRecipe(true)
+        const recipe = await getRecipeById(id)
+
+        if (!recipe) {
+          toast.error('レシピが見つかりませんでした')
+          navigate('/')
+          return
+        }
+
+        // フォームに既存データを設定
+        setTitle(recipe.title)
+        setDisplayTitle(recipe.displayTitle || '')
+        setServings(recipe.servings || '')
+        setIngredients(recipe.ingredients.length > 0 ? recipe.ingredients : [{ name: '', amount: '' }])
+        setSteps(recipe.steps.length > 0 ? recipe.steps : [''])
+        setMemo(recipe.memo || '')
+
+        // 既存画像URLを設定
+        setCurrentImageUrl(recipe.illustrated_url || recipe.image_url || null)
+      } catch (error) {
+        console.error('レシピ読み込みエラー:', error)
+        toast.error('レシピの読み込みに失敗しました')
+        navigate('/')
+      } finally {
+        setIsLoadingRecipe(false)
+      }
+    }
+
+    loadRecipe()
+  }, [isEditMode, id, getRecipeById, navigate])
 
   // 材料の操作
   const handleAddIngredient = () => {
@@ -124,6 +167,14 @@ export function RecipeForm() {
 
       toast.success('レシピ情報を抽出しました！')
 
+      // レシピ情報セクションにスクロール
+      setTimeout(() => {
+        recipeFormSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      }, 300)
+
       // 料理写真の処理：常にUnsplashから取得してイラスト風に変換
       toast('料理写真を検索しています...', { icon: '🔍' })
 
@@ -165,9 +216,6 @@ export function RecipeForm() {
         console.error('❌ 画像取得エラー:', imageError)
         toast('料理写真の取得に失敗しました。後で手動で追加できます。', { icon: 'ℹ️' })
       }
-
-      // 手動入力モードに切り替え（編集可能にする）
-      setInputMode('manual')
     } catch (error) {
       console.error('レシピ抽出エラー:', error)
       if (error instanceof Error) {
@@ -209,8 +257,9 @@ export function RecipeForm() {
       let thumbnailUrl: string | undefined
       let illustratedUrl: string | undefined
 
-      // 画像がある場合はアップロード
+      // 画像処理
       if (selectedImage) {
+        // 新しい画像が選択された場合はアップロード
         try {
           const urls = await imageService.uploadImageWithThumbnail(selectedImage)
           imageUrl = urls.imageUrl
@@ -222,6 +271,11 @@ export function RecipeForm() {
           console.error('画像アップロードエラー:', uploadError)
           throw new Error(`画像アップロード失敗: ${uploadError}`)
         }
+      } else if (isEditMode && currentImageUrl) {
+        // 編集モードで画像を変更していない場合は既存URLを保持
+        illustratedUrl = currentImageUrl
+        imageUrl = currentImageUrl
+        // thumbnailUrlは元のレシピから取得する必要があるため、後で対応
       }
 
       const recipeData = {
@@ -236,9 +290,17 @@ export function RecipeForm() {
         illustrated_url: illustratedUrl,
       }
 
-      await createRecipe(recipeData)
-      toast.success('レシピを保存しました')
-      navigate('/')
+      if (isEditMode && id) {
+        // 編集モード: 更新
+        await updateRecipe(id, recipeData)
+        toast.success('レシピを更新しました')
+        navigate(`/recipes/${id}`)
+      } else {
+        // 新規作成モード
+        await createRecipe(recipeData)
+        toast.success('レシピを保存しました')
+        navigate('/')
+      }
     } catch (error) {
       console.error('レシピ保存エラー:', error)
       toast.error('レシピの保存に失敗しました。もう一度お試しください。')
@@ -247,335 +309,283 @@ export function RecipeForm() {
     }
   }
 
+  // ローディング中の表示
+  if (isLoadingRecipe) {
+    return (
+      <div className="min-h-screen bg-notebook-page-white bg-grid-paper bg-grid bg-opacity-15 flex items-center justify-center">
+        <div className="text-notebook-ink font-handwriting text-note-lg">読み込み中...</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-notebook-cream py-6 px-4">
+    <div className="min-h-screen bg-notebook-page-white bg-grid-paper bg-grid bg-opacity-15 py-6 px-4">
       <div className="max-w-3xl mx-auto">
         {/* ページカード */}
         <div className="bg-notebook-white rounded-card shadow-card p-6 md:p-8 relative">
-          {/* マスキングテープ装飾 */}
-          <div
-            className="absolute -top-2 right-12 w-24 h-6 opacity-60 rotate-[2deg] rounded-sm shadow-sm"
-            style={{ background: '#FFE55C' }}
-          />
+          <Accordion
+            type="multiple"
+            defaultValue={isEditMode ? ["form"] : ["ai", "form"]}
+            className="space-y-4"
+          >
+            {/* AI抽出セクション（新規作成時のみ表示） */}
+            {!isEditMode && (
+              <AccordionItem value="ai" className="bg-notebook-card rounded-card shadow-card border-0">
+                <AccordionTrigger className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <Bot className="h-5 w-5 text-notebook-accent" />
+                    <span>AIでレシピを抽出</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6">
+                  <div className="mb-6">
+                    <p className="text-note-sm text-notebook-ink-light font-handwriting leading-relaxed">
+                      Instagramやクックパッドなどのレシピスクショをアップロードすると、AIが自動でレシピ情報を抽出します
+                    </p>
+                  </div>
 
-          <h1 className="text-3xl md:text-4xl font-handwriting text-notebook-ink mb-6 leading-relaxed">
-            新しいレシピ
-          </h1>
+                  <RecipeScreenshotUpload onImagesSelected={setScreenshots} disabled={isExtracting} />
 
-          {/* 入力モード切り替えタブ */}
-          <div className="flex gap-2 mb-6">
-            <button
-              type="button"
-              className={`
-                flex-1 py-3 px-4 rounded-xl font-handwriting text-base
-                transition-all duration-200
-                ${
-                  inputMode === 'manual'
-                    ? 'bg-notebook-accent text-white shadow-sm'
-                    : 'bg-notebook-highlight text-notebook-ink hover:bg-notebook-accent-light'
-                }
-              `}
-              onClick={() => setInputMode('manual')}
-            >
-              手動入力
-            </button>
-            <button
-              type="button"
-              className={`
-                flex-1 py-3 px-4 rounded-xl font-handwriting text-base
-                transition-all duration-200
-                ${
-                  inputMode === 'ai'
-                    ? 'bg-notebook-accent text-white shadow-sm'
-                    : 'bg-notebook-highlight text-notebook-ink hover:bg-notebook-accent-light'
-                }
-              `}
-              onClick={() => setInputMode('ai')}
-            >
-              AI抽出
-            </button>
-          </div>
-
-          {/* AI抽出モード */}
-          {inputMode === 'ai' && (
-            <div className="space-y-6 mb-8">
-              {/* 情報ボックス */}
-              <div className="bg-blue-50 border-l-4 border-blue-400 rounded-r-xl p-4 flex gap-3">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  className="stroke-blue-600 shrink-0 w-6 h-6"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="font-handwriting text-sm text-blue-900 leading-relaxed">
-                  Instagramやクックパッドなどのレシピスクショをアップロードすると、AIが自動でレシピ情報を抽出します。
-                </span>
-              </div>
-
-              <RecipeScreenshotUpload
-                onImagesSelected={setScreenshots}
-                disabled={isExtracting}
-              />
-
-              <Button
-                type="button"
-                variant="primary"
-                size="lg"
-                onClick={handleExtractRecipe}
-                disabled={screenshots.length === 0 || isExtracting}
-                className="w-full"
-              >
-                {isExtracting ? 'AI抽出中...' : 'AIでレシピを抽出'}
-              </Button>
-            </div>
-          )}
-
-          {/* 手動入力フォーム */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* 画像アップロード */}
-            {inputMode === 'manual' && (
-              <ImageUpload onImageSelect={setSelectedImage} disabled={isSubmitting} />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="lg"
+                    onClick={handleExtractRecipe}
+                    disabled={screenshots.length === 0 || isExtracting}
+                    className="w-full mt-6"
+                  >
+                    {isExtracting ? 'AI抽出中...' : 'AIでレシピを抽出'}
+                  </Button>
+                </AccordionContent>
+              </AccordionItem>
             )}
 
-            {/* 料理名 */}
-            <Input
-              label="料理名"
-              type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="例: カレーライス"
-              required
-              disabled={isSubmitting}
-            />
+            {/* レシピ情報フォーム */}
+            <AccordionItem value="form" ref={recipeFormSectionRef} className="bg-notebook-card rounded-card shadow-card border-0">
+              <AccordionTrigger className="px-6 py-4">
+                レシピ情報
+              </AccordionTrigger>
+              <AccordionContent className="px-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* 画像アップロード */}
+              <ImageUpload
+                onImageSelect={setSelectedImage}
+                currentImageUrl={currentImageUrl}
+                disabled={isSubmitting}
+              />
 
-            {/* 短縮タイトル（カード表示用） */}
-            <div>
-              <label className="block mb-2 font-handwriting text-notebook-ink text-base">
-                カード表示用タイトル（任意）
-              </label>
-              <p className="text-note-sm text-notebook-ink-light mb-3 font-handwriting">
-                一覧表示で使う短いタイトル（10-12文字）。AIで自動生成できます。
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={displayTitle}
-                  onChange={e => setDisplayTitle(e.target.value)}
-                  placeholder="例: カレーライス"
+              {/* 料理名 */}
+              <Input
+                label="料理名"
+                type="text"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="例: カレーライス"
+                required
+                disabled={isSubmitting}
+              />
+
+              {/* 短縮タイトル（カード表示用） */}
+              <div>
+                <label className="block mb-2 font-handwriting text-notebook-ink text-note-base">
+                  カード表示用タイトル（任意）
+                </label>
+                <p className="text-note-sm text-notebook-ink-light mb-3 font-handwriting">
+                  一覧表示で使う短いタイトル（10-12文字）。AIで自動生成できます。
+                </p>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      type="text"
+                      value={displayTitle}
+                      onChange={e => setDisplayTitle(e.target.value)}
+                      placeholder="例: カレーライス"
+                      disabled={isSubmitting}
+                      maxLength={15}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="md"
+                    onClick={handleGenerateDisplayTitle}
+                    disabled={!title.trim() || isGeneratingTitle || isSubmitting}
+                    className="whitespace-nowrap"
+                  >
+                    {isGeneratingTitle ? '生成中...' : 'AI生成'}
+                  </Button>
+                </div>
+                <p className="text-note-xs text-notebook-ink-light mt-1 font-handwriting opacity-70">
+                  {displayTitle.length}/15文字
+                </p>
+              </div>
+
+              {/* 分量 */}
+              <Input
+                label="分量"
+                type="text"
+                value={servings}
+                onChange={e => setServings(e.target.value)}
+                placeholder="例: 2人分"
+                disabled={isSubmitting}
+              />
+
+              {/* 材料 */}
+              <div>
+                <label className="block mb-3 font-handwriting text-notebook-ink text-note-base">
+                  材料 <span className="text-red-500">*</span>
+                </label>
+                <div className="space-y-3">
+                  {ingredients.map((ingredient, index) => (
+                    <div key={`ingredient-${ingredient.name}-${ingredient.amount}-${index}`} className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          placeholder="材料名"
+                          value={ingredient.name}
+                          onChange={e => handleIngredientChange(index, 'name', e.target.value)}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      <div className="w-24 md:w-32">
+                        <Input
+                          type="text"
+                          placeholder="分量"
+                          value={ingredient.amount}
+                          onChange={e => handleIngredientChange(index, 'amount', e.target.value)}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      {ingredients.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleRemoveIngredient(index)}
+                          disabled={isSubmitting}
+                          aria-label={`材料 ${index + 1} を削除`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleAddIngredient}
+                    disabled={isSubmitting}
+                  >
+                    + 材料を追加
+                  </Button>
+                </div>
+              </div>
+
+              {/* 手順 */}
+              <div>
+                <label className="block mb-3 font-handwriting text-notebook-ink text-note-base">
+                  手順 <span className="text-red-500">*</span>
+                </label>
+                <div className="space-y-3">
+                  {steps.map((step, index) => (
+                    <div key={`step-${step.slice(0, 20)}-${index}`} className="flex gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 mt-2 bg-notebook-accent text-white rounded-full flex items-center justify-center font-handwriting font-bold text-sm shadow-sm">
+                        {index + 1}
+                      </div>
+                      <textarea
+                        placeholder={`手順 ${index + 1}`}
+                        value={step}
+                        onChange={e => handleStepChange(index, e.target.value)}
+                        className="
+                          flex-1 px-4 py-3 min-h-[80px]
+                          font-sans text-notebook-ink
+                          bg-notebook-white
+                          border-2 border-notebook-border
+                          rounded-xl
+                          transition-all duration-200
+                          focus:outline-none focus:border-notebook-accent focus:ring-2 focus:ring-notebook-accent/20
+                          placeholder:text-notebook-ink-light placeholder:font-handwriting
+                          resize-none
+                        "
+                        rows={2}
+                        disabled={isSubmitting}
+                      />
+                      {steps.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleRemoveStep(index)}
+                          disabled={isSubmitting}
+                          aria-label={`手順 ${index + 1} を削除`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleAddStep}
+                    disabled={isSubmitting}
+                  >
+                    + 手順を追加
+                  </Button>
+                </div>
+              </div>
+
+              {/* メモ */}
+              <div>
+                <label className="block mb-3 font-handwriting text-notebook-ink text-note-base">
+                  メモ（任意）
+                </label>
+                <textarea
+                  value={memo}
+                  onChange={e => setMemo(e.target.value)}
                   className="
-                    flex-1 px-4 py-3 min-h-touch
-                    font-sans text-notebook-ink
+                    w-full px-4 py-3 min-h-[100px]
+                    font-handwriting text-notebook-ink
                     bg-notebook-white
                     border-2 border-notebook-border
                     rounded-xl
                     transition-all duration-200
                     focus:outline-none focus:border-notebook-accent focus:ring-2 focus:ring-notebook-accent/20
-                    placeholder:text-notebook-ink-light placeholder:font-handwriting
+                    placeholder:text-notebook-ink-light
+                    resize-none
                   "
+                  rows={3}
+                  placeholder="次回は塩少なめで、子供には辛すぎた、など"
                   disabled={isSubmitting}
-                  maxLength={15}
                 />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="md"
-                  onClick={handleGenerateDisplayTitle}
-                  disabled={!title.trim() || isGeneratingTitle || isSubmitting}
-                  className="whitespace-nowrap"
-                >
-                  {isGeneratingTitle ? '生成中...' : 'AI生成'}
+              </div>
+
+              {/* ボタン */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <Button type="submit" variant="primary" size="lg" disabled={isSubmitting} className="flex-1">
+                  {isSubmitting ? '保存中...' : '保存する'}
                 </Button>
-              </div>
-              <p className="text-note-xs text-notebook-ink-light mt-1 font-handwriting opacity-70">
-                {displayTitle.length}/15文字
-              </p>
-            </div>
-
-            {/* 分量 */}
-            <Input
-              label="分量"
-              type="text"
-              value={servings}
-              onChange={e => setServings(e.target.value)}
-              placeholder="例: 2人分"
-              disabled={isSubmitting}
-            />
-
-            {/* 材料 */}
-            <div>
-              <label className="block mb-3 font-handwriting text-notebook-ink text-base">
-                材料 <span className="text-red-500">*</span>
-              </label>
-              <div className="space-y-3">
-                {ingredients.map((ingredient, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="材料名"
-                      value={ingredient.name}
-                      onChange={e => handleIngredientChange(index, 'name', e.target.value)}
-                      className="
-                        flex-1 px-4 py-3 min-h-touch
-                        font-sans text-notebook-ink
-                        bg-notebook-white
-                        border-2 border-notebook-border
-                        rounded-xl
-                        transition-all duration-200
-                        focus:outline-none focus:border-notebook-accent focus:ring-2 focus:ring-notebook-accent/20
-                        placeholder:text-notebook-ink-light placeholder:font-handwriting
-                      "
-                      disabled={isSubmitting}
-                    />
-                    <input
-                      type="text"
-                      placeholder="分量"
-                      value={ingredient.amount}
-                      onChange={e => handleIngredientChange(index, 'amount', e.target.value)}
-                      className="
-                        w-24 md:w-32 px-4 py-3 min-h-touch
-                        font-sans text-notebook-ink
-                        bg-notebook-white
-                        border-2 border-notebook-border
-                        rounded-xl
-                        transition-all duration-200
-                        focus:outline-none focus:border-notebook-accent focus:ring-2 focus:ring-notebook-accent/20
-                        placeholder:text-notebook-ink-light placeholder:font-handwriting
-                      "
-                      disabled={isSubmitting}
-                    />
-                    {ingredients.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleRemoveIngredient(index)}
-                        disabled={isSubmitting}
-                      >
-                        ×
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3">
                 <Button
                   type="button"
                   variant="secondary"
-                  size="sm"
-                  onClick={handleAddIngredient}
+                  size="lg"
+                  onClick={() => navigate('/')}
                   disabled={isSubmitting}
+                  className="flex-1"
                 >
-                  + 材料を追加
+                  キャンセル
                 </Button>
               </div>
-            </div>
-
-            {/* 手順 */}
-            <div>
-              <label className="block mb-3 font-handwriting text-notebook-ink text-base">
-                手順 <span className="text-red-500">*</span>
-              </label>
-              <div className="space-y-3">
-                {steps.map((step, index) => (
-                  <div key={index} className="flex gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 mt-2 bg-notebook-accent text-white rounded-full flex items-center justify-center font-handwriting font-bold text-sm shadow-sm">
-                      {index + 1}
-                    </div>
-                    <textarea
-                      placeholder={`手順 ${index + 1}`}
-                      value={step}
-                      onChange={e => handleStepChange(index, e.target.value)}
-                      className="
-                        flex-1 px-4 py-3 min-h-[80px]
-                        font-sans text-notebook-ink
-                        bg-notebook-white
-                        border-2 border-notebook-border
-                        rounded-xl
-                        transition-all duration-200
-                        focus:outline-none focus:border-notebook-accent focus:ring-2 focus:ring-notebook-accent/20
-                        placeholder:text-notebook-ink-light placeholder:font-handwriting
-                        resize-none
-                      "
-                      rows={2}
-                      disabled={isSubmitting}
-                    />
-                    {steps.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleRemoveStep(index)}
-                        disabled={isSubmitting}
-                      >
-                        ×
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleAddStep}
-                  disabled={isSubmitting}
-                >
-                  + 手順を追加
-                </Button>
-              </div>
-            </div>
-
-            {/* メモ */}
-            <div>
-              <label className="block mb-3 font-handwriting text-notebook-ink text-base">
-                メモ（任意）
-              </label>
-              <textarea
-                value={memo}
-                onChange={e => setMemo(e.target.value)}
-                className="
-                  w-full px-4 py-3 min-h-[100px]
-                  font-handwriting text-notebook-ink
-                  bg-[#FFF9E6]
-                  border-2 border-notebook-accent/30
-                  border-l-4 border-l-notebook-accent
-                  rounded-r-xl
-                  transition-all duration-200
-                  focus:outline-none focus:border-notebook-accent focus:ring-2 focus:ring-notebook-accent/20
-                  placeholder:text-notebook-ink-light
-                  resize-none
-                "
-                rows={3}
-                placeholder="次回は塩少なめで、子供には辛すぎた、など"
-                disabled={isSubmitting}
-              />
-            </div>
-
-            {/* ボタン */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <Button type="submit" variant="primary" size="lg" disabled={isSubmitting} className="flex-1">
-                {isSubmitting ? '保存中...' : '保存する'}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                onClick={() => navigate('/')}
-                disabled={isSubmitting}
-                className="flex-1"
-              >
-                キャンセル
-              </Button>
-            </div>
-          </form>
+            </form>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       </div>
     </div>

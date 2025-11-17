@@ -1,4 +1,5 @@
 import { useState, ChangeEvent } from 'react'
+import { Camera, X } from 'lucide-react'
 
 interface RecipeScreenshotUploadProps {
   onImagesSelected: (images: File[]) => void
@@ -62,16 +63,18 @@ export function RecipeScreenshotUpload({
   }
 
   return (
-    <div className="form-control">
-      <label className="label">
-        <span className="label-text font-bold text-base">
-          レシピのスクリーンショット（複数可）
-        </span>
+    <div className="space-y-4">
+      <label className="block font-handwriting text-notebook-ink text-note-base font-medium">
+        レシピのスクリーンショット
       </label>
 
       {/* ファイル選択ボタン */}
-      <div className="mb-4">
-        <label className="btn btn-secondary btn-sm" htmlFor="screenshot-upload">
+      <div className="flex flex-wrap gap-3">
+        <label
+          className="inline-flex items-center justify-center px-6 py-3 min-h-touch font-handwriting text-note-base bg-notebook-white text-notebook-ink border-2 border-notebook-border rounded-xl cursor-pointer transition-all duration-200 hover:border-notebook-accent hover:bg-notebook-accent-light active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          htmlFor="screenshot-upload"
+        >
+          <Camera className="h-5 w-5 mr-2" />
           {selectedImages.length > 0 ? '画像を追加' : '画像を選択'}
         </label>
         <input
@@ -88,7 +91,7 @@ export function RecipeScreenshotUpload({
             type="button"
             onClick={handleClearAll}
             disabled={disabled}
-            className="btn btn-ghost btn-sm ml-2"
+            className="inline-flex items-center justify-center px-6 py-3 min-h-touch font-handwriting text-note-base text-notebook-ink-light hover:text-notebook-ink border-2 border-transparent hover:border-notebook-border rounded-xl transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             全て削除
           </button>
@@ -97,26 +100,28 @@ export function RecipeScreenshotUpload({
 
       {/* プレビュー表示 */}
       {selectedImages.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm text-gray-600">{selectedImages.length}枚選択中</p>
+        <div className="space-y-3">
+          <p className="text-note-sm text-notebook-ink-light font-handwriting">
+            {selectedImages.length}枚選択中
+          </p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {previewUrls.map((url, index) => (
               <div key={index} className="relative group">
                 <img
                   src={url}
                   alt={`スクリーンショット ${index + 1}`}
-                  className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
+                  className="w-full h-32 object-cover rounded-lg border-2 border-notebook-border shadow-card"
                 />
                 <button
                   type="button"
                   onClick={() => handleRemoveImage(index)}
                   disabled={disabled}
-                  className="absolute top-1 right-1 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center bg-white border-2 border-notebook-border text-notebook-ink rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:border-red-400 hover:text-red-600 active:scale-95 disabled:opacity-50"
                   aria-label={`画像 ${index + 1} を削除`}
                 >
-                  ✕
+                  <X className="h-4 w-4" />
                 </button>
-                <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                <div className="absolute bottom-2 left-2 bg-notebook-ink/70 text-white text-note-xs px-2 py-1 rounded font-handwriting">
                   {index + 1}
                 </div>
               </div>
@@ -127,11 +132,14 @@ export function RecipeScreenshotUpload({
 
       {/* 説明テキスト */}
       {selectedImages.length === 0 && (
-        <p className="text-sm text-gray-500 mt-2">
-          Instagramやクックパッドなどのレシピスクリーンショットを選択してください。
-          <br />
-          レシピが複数画面に分かれている場合は、全て選択してください。
-        </p>
+        <div className="space-y-2">
+          <p className="text-note-sm text-notebook-ink-light font-handwriting leading-relaxed">
+            Instagramやクックパッドなどのレシピ画像を選択してください。
+          </p>
+          <p className="text-note-sm text-notebook-ink-light font-handwriting leading-relaxed">
+            複数画面に分かれている場合は全て選択してください。
+          </p>
+        </div>
       )}
     </div>
   )
