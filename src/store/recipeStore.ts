@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { Recipe } from '@/features/recipes/types/recipe.types'
 
+export type SortOrder = 'newest' | 'oldest' | 'name' | 'favorites-first'
+
 interface RecipeStore {
   // データ（Single Source of Truth）
   allRecipes: Recipe[]
@@ -8,6 +10,7 @@ interface RecipeStore {
 
   // 検索・フィルタ状態
   searchQuery: string
+  sortOrder: SortOrder
 
   // UI状態
   isLoading: boolean
@@ -28,6 +31,7 @@ interface RecipeStore {
   clearError: () => void
   setSearchQuery: (query: string) => void
   clearSearch: () => void
+  setSortOrder: (order: SortOrder) => void
 }
 
 export const useRecipeStore = create<RecipeStore>((set, get) => ({
@@ -37,6 +41,7 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
   isLoading: false,
   error: null,
   searchQuery: '',
+  sortOrder: 'newest',
 
   // Selector: 検索クエリに基づいてフィルタされたレシピを返す
   getFilteredRecipes: () => {
@@ -116,4 +121,7 @@ export const useRecipeStore = create<RecipeStore>((set, get) => ({
 
   // 検索クリア
   clearSearch: () => set({ searchQuery: '' }),
+
+  // 並び替え順序をセット
+  setSortOrder: order => set({ sortOrder: order }),
 }))

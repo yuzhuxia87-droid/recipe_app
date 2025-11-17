@@ -14,6 +14,10 @@ export const router = createBrowserRouter([
     element: <RecipeForm />,
   },
   {
+    path: '/recipes/:id/edit',
+    element: <RecipeForm />,
+  },
+  {
     path: '/recipes/:id',
     element: <RecipeDetail />,
   },

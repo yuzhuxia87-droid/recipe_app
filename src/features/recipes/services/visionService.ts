@@ -107,35 +107,51 @@ class VisionService {
    - 例: "ビビンバ" → "bibimbap"
    - 例: "カレーライス" → "curry rice"
    - 例: "麻婆豆腐" → "mapo tofu"
-4. servings: 分量・人数（文字列、例："2人分"、見つからない場合は空文字列）
-5. ingredients: 材料のリスト（配列）
+4. alternativeEnglishNames: 代替英語表現（配列、画像検索用）
+   - dishNameEnglishで見つからない場合に使う、より一般的な英語表現
+   - 例: "オムライス" の場合
+     - dishNameEnglish: "omurice"
+     - alternativeEnglishNames: ["omelet rice", "ketchup rice", "japanese omelet"]
+   - 例: "唐揚げ" の場合
+     - dishNameEnglish: "karaage"
+     - alternativeEnglishNames: ["fried chicken", "japanese fried chicken"]
+5. dishCategory: 料理カテゴリ（画像検索用の広い概念）
+   - 例: "rice dish", "noodle dish", "soup", "salad", "dessert", "fried food"
+6. servings: 分量・人数（文字列、例："2人分"、見つからない場合は空文字列）
+7. ingredients: 材料のリスト（配列）
    - 各要素は { "name": "材料名", "amount": "分量" } の形式
-6. steps: 手順のリスト（文字列の配列、順番を保持）
-7. memo: メモやコツがあれば抽出（文字列、なければ空文字列）
+8. steps: 手順のリスト（文字列の配列、順番を保持）
+9. memo: メモやコツがあれば抽出（文字列、なければ空文字列）
 
 重要な注意点：
 - 複数の画像がある場合は、全体を統合して1つのレシピとして抽出してください
 - 材料と手順は漏れなく抽出してください
 - dishNameは修飾語（「簡単」「時短」「ズボラ」「たっぷり」「本格」など）を削除した正式名称にしてください
 - dishNameEnglishは国際的に通じる英語表記にしてください
+- alternativeEnglishNamesは、Unsplash等の画像検索で使える一般的な英語表現を2-3個提供してください
+- dishCategoryは料理の種類を広いカテゴリで指定してください
 
-必ず以下の形式で返してください（JSONのみ、他のテキストは含めないでください）：
+**IMPORTANT: 必ず以下の形式でJSONを返してください。alternativeEnglishNamesとdishCategoryは必須フィールドです。**
 
 {
-  "title": "野菜たっぷりズボラビビンバ丼",
-  "dishName": "ビビンバ",
-  "dishNameEnglish": "bibimbap",
+  "title": "ふわふわ卵のオムライス",
+  "dishName": "オムライス",
+  "dishNameEnglish": "omurice",
+  "alternativeEnglishNames": ["omelet rice", "ketchup rice", "japanese omelet"],
+  "dishCategory": "rice dish",
   "servings": "2人分",
   "ingredients": [
-    { "name": "牛肉", "amount": "100g" },
-    { "name": "ほうれん草", "amount": "1束" }
+    { "name": "卵", "amount": "3個" },
+    { "name": "ご飯", "amount": "200g" }
   ],
   "steps": [
-    "野菜をそれぞれ茹でる",
-    "牛肉を炒める"
+    "ご飯をケチャップで炒める",
+    "卵を半熟に焼く"
   ],
-  "memo": "コチュジャンの量はお好みで調整してください"
-}`
+  "memo": "卵は半熟がポイントです"
+}
+
+注意: alternativeEnglishNames と dishCategory は省略せず、必ず含めてください。`
 
       // Gemini APIに送信
       const result = await model.generateContent([prompt, ...imageParts])
@@ -182,6 +198,8 @@ class VisionService {
         title: extracted.title,
         dishName: extracted.dishName,
         dishNameEnglish: extracted.dishNameEnglish,
+        alternativeEnglishNames: extracted.alternativeEnglishNames,
+        dishCategory: extracted.dishCategory,
         ingredientsCount: extracted.ingredients.length,
         stepsCount: extracted.steps.length
       })
@@ -190,6 +208,8 @@ class VisionService {
         title: extracted.title.trim(),
         dishName: extracted.dishName.trim(),
         dishNameEnglish: extracted.dishNameEnglish.trim(),
+        alternativeEnglishNames: extracted.alternativeEnglishNames || [],
+        dishCategory: extracted.dishCategory?.trim() || undefined,
         servings: extracted.servings?.trim() || undefined,
         ingredients: extracted.ingredients.map(ing => ({
           name: ing.name.trim(),

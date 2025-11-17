@@ -37,6 +37,8 @@ export interface ExtractedRecipeData {
   title: string // ユーザー入力そのまま（例：「野菜たっぷりズボラビビンバ丼」）
   dishName: string // 正規化された料理名（例：「ビビンバ」）
   dishNameEnglish: string // 英語の料理名（例：「bibimbap」）
+  alternativeEnglishNames?: string[] // 代替英語名（例：["omelet rice", "ketchup rice"]）
+  dishCategory?: string // 料理カテゴリ（例：「rice dish」「noodle dish」「soup」）
   servings?: string
   ingredients: Ingredient[]
   steps: string[]
