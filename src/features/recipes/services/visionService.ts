@@ -20,30 +20,6 @@ class VisionService {
   }
 
   /**
-   * 画像ファイルをBase64エンコード
-   */
-  private async fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const base64 = reader.result as string
-        // data:image/png;base64, の部分を削除
-        const base64Data = base64.split(',')[1]
-        resolve(base64Data || '')
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-  }
-
-  /**
-   * 画像のMIMEタイプを取得
-   */
-  private getImageMimeType(file: File): string {
-    return file.type || 'image/jpeg'
-  }
-
-  /**
    * 複数のレシピスクショからレシピ情報を抽出
    */
   async extractRecipeFromImages(images: File[]): Promise<ExtractedRecipeData> {
