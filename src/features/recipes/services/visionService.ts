@@ -1,18 +1,21 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import { ExtractedRecipeData } from '../types/recipe.types'
 
 /**
- * Google Gemini APIを使用してレシピスクショから情報を抽出するサービス
+ * OpenAI GPT-4 Vision APIを使用してレシピスクショから情報を抽出するサービス
  */
 class VisionService {
-  private client: GoogleGenerativeAI | null = null
+  private client: OpenAI | null = null
 
   constructor() {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY
     if (apiKey) {
-      this.client = new GoogleGenerativeAI(apiKey)
+      this.client = new OpenAI({
+        apiKey,
+        dangerouslyAllowBrowser: true, // クライアントサイドで使用（本番では推奨されないが、Viteの環境変数はビルド時に埋め込まれるため許容）
+      })
     } else {
-      console.warn('⚠️ Gemini API key not found - using mock mode')
+      console.warn('⚠️ OpenAI API key not found - using mock mode')
     }
   }
 
@@ -81,17 +84,16 @@ class VisionService {
     }
 
     try {
-      // Gemini 2.5 Flashモデルを使用（2025年時点の最新安定版）
-      const model = this.client.getGenerativeModel({ model: 'gemini-2.5-flash' })
-
-      // 全ての画像をBase64エンコード
-      const imageParts = await Promise.all(
-        images.map(async file => ({
-          inlineData: {
-            data: await this.fileToBase64(file),
-            mimeType: this.getImageMimeType(file),
-          },
-        }))
+      // 全ての画像をBase64エンコード（data URL形式）
+      const imageDataUrls = await Promise.all(
+        images.map(async file => {
+          const reader = new FileReader()
+          return new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+          })
+        })
       )
 
       const prompt = `これらの画像からレシピ情報を抽出してください。画像は料理レシピのスクリーンショットです（Instagram、クックパッド、Webサイトなど）。
@@ -153,10 +155,29 @@ class VisionService {
 
 注意: alternativeEnglishNames と dishCategory は省略せず、必ず含めてください。`
 
-      // Gemini APIに送信
-      const result = await model.generateContent([prompt, ...imageParts])
-      const response = await result.response
-      const text = response.text()
+      // OpenAI GPT-4 Vision APIに送信
+      const response = await this.client.chat.completions.create({
+        model: 'gpt-4o', // GPT-4 with vision
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              ...imageDataUrls.map(url => ({
+                type: 'image_url' as const,
+                image_url: { url },
+              })),
+            ],
+          },
+        ],
+        max_tokens: 2000,
+        temperature: 0.2, // 低めの温度で安定した出力
+      })
+
+      const text = response.choices[0]?.message?.content || ''
+      if (!text) {
+        throw new Error('OpenAI APIからのレスポンスが空です')
+      }
 
       // JSONを抽出（```json ... ``` の中身、または直接JSON）
       let jsonText = text.trim()
@@ -194,7 +215,7 @@ class VisionService {
         throw new Error('手順を抽出できませんでした')
       }
 
-      console.log('✅ Gemini抽出結果:', {
+      console.log('✅ OpenAI抽出結果:', {
         title: extracted.title,
         dishName: extracted.dishName,
         dishNameEnglish: extracted.dishNameEnglish,
@@ -233,7 +254,7 @@ class VisionService {
   async generateDisplayTitle(fullTitle: string): Promise<string> {
     // モックモード：APIキーが設定されていない場合
     if (!this.client) {
-      console.warn('⚠️ Gemini API not available - using simplified title logic')
+      console.warn('⚠️ OpenAI API not available - using simplified title logic')
       // 簡易的なルールベース短縮（モック）
       if (fullTitle.length <= 12) {
         return fullTitle
@@ -248,7 +269,6 @@ class VisionService {
     }
 
     try {
-      const model = this.client.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
       const prompt = `以下のレシピタイトルを、カード表示用の短縮タイトルに変換してください。
 
@@ -288,9 +308,19 @@ class VisionService {
 
 短縮タイトルのみを返してください（説明や記号は不要）。自然な日本語になるよう注意してください。`
 
-      const result = await model.generateContent(prompt)
-      const response = await result.response
-      const displayTitle = response.text().trim()
+      const response = await this.client.chat.completions.create({
+        model: 'gpt-4o-mini', // 短縮タイトル生成には軽量モデルで十分
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        max_tokens: 50,
+        temperature: 0.3,
+      })
+
+      const displayTitle = response.choices[0]?.message?.content?.trim() || fullTitle
 
       return displayTitle
     } catch (error) {
@@ -301,13 +331,13 @@ class VisionService {
         const errorMessage = error.message.toLowerCase()
 
         // Rate limit エラーの場合は警告
-        if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-          console.warn('⚠️ Gemini API rate limit exceeded. Consider upgrading your plan or using a different model.')
+        if (errorMessage.includes('429') || errorMessage.includes('quota') || errorMessage.includes('rate')) {
+          console.warn('⚠️ OpenAI API rate limit exceeded. Consider upgrading your plan or waiting a bit.')
         }
 
         // モデルが見つからないエラーの場合は警告
         if (errorMessage.includes('404') || errorMessage.includes('not found')) {
-          console.error('❌ Gemini model not found. Check the model name in visionService.ts')
+          console.error('❌ OpenAI model not found. Check the model name in visionService.ts')
         }
       }
 
