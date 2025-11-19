@@ -179,16 +179,20 @@ export function RecipeForm() {
       toast('料理写真を検索しています...', { icon: '🔍' })
 
       try {
-        // 英語の料理名で検索（精度向上のため）
-        const searchQuery = extracted.dishNameEnglish || extracted.dishName || extracted.title
-        console.log('🔍 Unsplash検索:', {
+        // 多段階検索戦略で画像を取得
+        console.log('🔍 Unsplash検索 (多段階戦略):', {
           title: extracted.title,
           dishName: extracted.dishName,
           dishNameEnglish: extracted.dishNameEnglish,
-          searchQuery
+          alternativeEnglishNames: extracted.alternativeEnglishNames,
+          dishCategory: extracted.dishCategory,
         })
 
-        const imageUrl = await unsplashService.getFoodImage(searchQuery)
+        const imageUrl = await unsplashService.getFoodImage({
+          primaryName: extracted.dishNameEnglish || extracted.dishName || extracted.title,
+          alternativeNames: extracted.alternativeEnglishNames || [],
+          category: extracted.dishCategory,
+        })
 
         if (imageUrl) {
           console.log('📸 Unsplash画像取得成功:', imageUrl)
