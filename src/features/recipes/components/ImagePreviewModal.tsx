@@ -33,7 +33,7 @@ export function ImagePreviewModal({
     <>
       {/* オーバーレイ */}
       <div
-        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4"
         onClick={onClose}
       >
         {/* モーダルコンテンツ */}
@@ -46,10 +46,10 @@ export function ImagePreviewModal({
 
           {/* ヘッダー */}
           <div className="relative z-content p-6 border-b border-notebook-border">
-            <h2 className="text-2xl font-handwriting text-notebook-ink">
+            <h2 className="text-note-2xl font-handwriting text-notebook-ink">
               この画像でよろしいですか？
             </h2>
-            <p className="text-sm text-notebook-ink-light mt-1 font-sans">
+            <p className="text-note-sm text-notebook-ink-light mt-1 font-sans">
               料理名: {dishName}
             </p>
           </div>
@@ -65,8 +65,8 @@ export function ImagePreviewModal({
                 />
               </div>
             ) : (
-              <div className="rounded-lg border-2 border-dashed border-notebook-border bg-amber-50 p-12 text-center">
-                <p className="text-notebook-ink-light font-sans">
+              <div className="rounded-lg border-2 border-dashed border-notebook-border bg-notebook-accent-light/30 p-12 text-center">
+                <p className="text-note-base text-notebook-ink-light font-sans">
                   画像が見つかりませんでした
                 </p>
               </div>
@@ -80,7 +80,7 @@ export function ImagePreviewModal({
                 {/* 画像を使う */}
                 <button
                   onClick={handleUseImage}
-                  className="px-6 py-3 bg-amber-600 text-white rounded-lg font-sans font-medium hover:bg-amber-700 active:scale-95 transition-all duration-200 shadow-md"
+                  className="px-6 py-3 bg-notebook-accent text-white rounded-lg font-sans font-medium hover:bg-notebook-accent/90 active:scale-95 transition-all duration-200 shadow-md"
                 >
                   この画像でOK
                 </button>
@@ -88,7 +88,7 @@ export function ImagePreviewModal({
                 {/* 画像なしで作成 */}
                 <button
                   onClick={handleSkipImage}
-                  className="px-6 py-3 bg-notebook-card border border-notebook-border text-notebook-ink rounded-lg font-sans hover:bg-amber-50 active:scale-95 transition-all duration-200"
+                  className="px-6 py-3 bg-notebook-card border border-notebook-border text-notebook-ink rounded-lg font-sans hover:bg-notebook-accent-light/20 active:scale-95 transition-all duration-200"
                 >
                   画像なしで作成
                 </button>
@@ -98,7 +98,7 @@ export function ImagePreviewModal({
                 {/* 画像なしで作成（画像がない場合のデフォルトボタン） */}
                 <button
                   onClick={handleSkipImage}
-                  className="px-6 py-3 bg-amber-600 text-white rounded-lg font-sans font-medium hover:bg-amber-700 active:scale-95 transition-all duration-200 shadow-md"
+                  className="px-6 py-3 bg-notebook-accent text-white rounded-lg font-sans font-medium hover:bg-notebook-accent/90 active:scale-95 transition-all duration-200 shadow-md"
                 >
                   画像なしで作成
                 </button>
@@ -106,7 +106,7 @@ export function ImagePreviewModal({
                 {/* キャンセル */}
                 <button
                   onClick={onClose}
-                  className="px-6 py-3 bg-notebook-card border border-notebook-border text-notebook-ink rounded-lg font-sans hover:bg-amber-50 active:scale-95 transition-all duration-200"
+                  className="px-6 py-3 bg-notebook-card border border-notebook-border text-notebook-ink rounded-lg font-sans hover:bg-notebook-accent-light/20 active:scale-95 transition-all duration-200"
                 >
                   キャンセル
                 </button>
