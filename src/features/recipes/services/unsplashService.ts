@@ -104,20 +104,21 @@ class UnsplashService {
         }
       }
 
-      // Step 3: カテゴリ検索
-      if (category) {
-        console.log(`\n🔍 [Step 3] カテゴリ検索: "${category}"`)
-        const categoryPhotos = await this.searchPhotos(category)
+      // Step 3: カテゴリ検索（無効化：精度が低いため）
+      // Issue #3でユーザー選択機能を実装するまで無効化
+      // if (category) {
+      //   console.log(`\n🔍 [Step 3] カテゴリ検索: "${category}"`)
+      //   const categoryPhotos = await this.searchPhotos(category)
 
-        if (categoryPhotos.length > 0) {
-          const bestPhoto = this.selectBestPhoto(categoryPhotos, category, this.SCORE_THRESHOLDS.category)
+      //   if (categoryPhotos.length > 0) {
+      //     const bestPhoto = this.selectBestPhoto(categoryPhotos, category, this.SCORE_THRESHOLDS.category)
 
-          if (bestPhoto) {
-            console.log(`✅ カテゴリ検索で発見: ${bestPhoto.alt_description || 'No description'}`)
-            return bestPhoto.urls.regular
-          }
-        }
-      }
+      //     if (bestPhoto) {
+      //       console.log(`✅ カテゴリ検索で発見: ${bestPhoto.alt_description || 'No description'}`)
+      //       return bestPhoto.urls.regular
+      //     }
+      //   }
+      // }
 
       console.warn('❌ すべての検索で適切な画像が見つかりませんでした')
       return null

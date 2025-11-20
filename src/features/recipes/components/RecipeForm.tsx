@@ -9,6 +9,7 @@ import { Input } from '@/shared/components/Input'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/shared/components/Accordion'
 import { ImageUpload } from './ImageUpload'
 import { RecipeScreenshotUpload } from './RecipeScreenshotUpload'
+import { ImagePreviewModal } from './ImagePreviewModal'
 import { imageService } from '../services/imageService'
 import { visionService } from '../services/visionService'
 import { unsplashService } from '../services/unsplashService'
@@ -41,6 +42,12 @@ export function RecipeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
   const [isLoadingRecipe, setIsLoadingRecipe] = useState(false)
+
+  // 画像プレビューモーダル用
+  const [showImagePreviewModal, setShowImagePreviewModal] = useState(false)
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
+  const [previewDishName, setPreviewDishName] = useState('')
+  const [pendingExtractedData, setPendingExtractedData] = useState<any>(null)
 
   // 編集モード: 既存レシピをロード
   useEffect(() => {
@@ -136,6 +143,71 @@ export function RecipeForm() {
     }
   }
 
+  // 画像プレビューモーダルの確定処理
+  const handleImageConfirm = async (useImage: boolean) => {
+    setShowImagePreviewModal(false)
+
+    if (!pendingExtractedData) {
+      console.warn('⚠️ 保留中の抽出データがありません')
+      return
+    }
+
+    try {
+      // 画像を使用する場合の処理
+      if (useImage && previewImageUrl) {
+        toast('画像を変換しています...', { icon: '🎨' })
+
+        // URLからFileオブジェクトに変換
+        const imageFile = await unsplashService.urlToFile(
+          previewImageUrl,
+          `${pendingExtractedData.dishName || 'recipe'}.jpg`
+        )
+
+        // イラスト風に変換
+        const illustratedFile = await illustrationService.convertToIllustration(imageFile)
+        setSelectedImage(illustratedFile)
+
+        toast.success('画像を設定しました')
+      } else {
+        // 画像を使用しない場合
+        setSelectedImage(null)
+        toast('画像なしで作成します', { icon: 'ℹ️' })
+      }
+
+      // フォームに抽出データを反映（画像選択に関わらず実行）
+      setTitle(pendingExtractedData.title)
+      setServings(pendingExtractedData.servings || '')
+      setIngredients(pendingExtractedData.ingredients)
+      setSteps(pendingExtractedData.steps)
+      setMemo(pendingExtractedData.memo || '')
+
+      // 短縮タイトルを自動生成
+      try {
+        const generated = await visionService.generateDisplayTitle(pendingExtractedData.title)
+        setDisplayTitle(generated)
+      } catch (error) {
+        console.error('短縮タイトル生成エラー:', error)
+        // エラーでも続行（短縮タイトルは任意のため）
+      }
+
+      // レシピ情報セクションにスクロール
+      setTimeout(() => {
+        recipeFormSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      }, 300)
+    } catch (error) {
+      console.error('❌ 画像変換エラー:', error)
+      toast.error('画像の変換に失敗しました')
+    } finally {
+      // 状態をクリア
+      setPendingExtractedData(null)
+      setPreviewImageUrl(null)
+      setPreviewDishName('')
+    }
+  }
+
   // AI抽出実行
   const handleExtractRecipe = async () => {
     if (screenshots.length === 0) {
@@ -149,72 +221,51 @@ export function RecipeForm() {
       // Vision APIでレシピ情報を抽出
       const extracted = await visionService.extractRecipeFromImages(screenshots)
 
-      // フォームに自動入力
-      setTitle(extracted.title)
-      setServings(extracted.servings || '')
-      setIngredients(extracted.ingredients)
-      setSteps(extracted.steps)
-      setMemo(extracted.memo || '')
-
-      // 短縮タイトルを自動生成
-      try {
-        const generated = await visionService.generateDisplayTitle(extracted.title)
-        setDisplayTitle(generated)
-      } catch (error) {
-        console.error('短縮タイトル生成エラー:', error)
-        // エラーでも続行（短縮タイトルは任意のため）
-      }
-
       toast.success('レシピ情報を抽出しました！')
 
-      // レシピ情報セクションにスクロール
-      setTimeout(() => {
-        recipeFormSectionRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        })
-      }, 300)
-
-      // 料理写真の処理：常にUnsplashから取得してイラスト風に変換
+      // 料理写真の処理：常にUnsplashから取得してプレビューモーダルで確認
       toast('料理写真を検索しています...', { icon: '🔍' })
 
       try {
-        // 英語の料理名で検索（精度向上のため）
-        const searchQuery = extracted.dishNameEnglish || extracted.dishName || extracted.title
-        console.log('🔍 Unsplash検索:', {
+        // 多段階検索戦略で画像を取得
+        console.log('🔍 Unsplash検索 (多段階戦略):', {
           title: extracted.title,
           dishName: extracted.dishName,
           dishNameEnglish: extracted.dishNameEnglish,
-          searchQuery
+          alternativeEnglishNames: extracted.alternativeEnglishNames,
+          dishCategory: extracted.dishCategory,
         })
 
-        const imageUrl = await unsplashService.getFoodImage(searchQuery)
+        const imageUrl = await unsplashService.getFoodImage({
+          primaryName: extracted.dishNameEnglish || extracted.dishName || extracted.title,
+          alternativeNames: extracted.alternativeEnglishNames || [],
+          category: extracted.dishCategory,
+        })
+
+        // 抽出データを保存（モーダル確定後に使用）
+        setPendingExtractedData(extracted)
+        setPreviewImageUrl(imageUrl)
+        setPreviewDishName(extracted.dishName || extracted.title)
+
+        // 画像プレビューモーダルを表示
+        setShowImagePreviewModal(true)
 
         if (imageUrl) {
           console.log('📸 Unsplash画像取得成功:', imageUrl)
-
-          // URLからFileオブジェクトに変換
-          const imageFile = await unsplashService.urlToFile(
-            imageUrl,
-            `${extracted.dishName}_original.jpg`
-          )
-          console.log('📦 Fileオブジェクト変換完了:', imageFile.name, imageFile.size)
-
-          // イラスト風に変換（強度3: 強め）
-          console.log('🎨 イラスト風変換開始...')
-          const illustratedFile = await illustrationService.convertToIllustration(imageFile, 3)
-          console.log('✨ イラスト風変換完了:', illustratedFile.name, illustratedFile.size)
-
-          setSelectedImage(illustratedFile)
-
-          toast.success('料理写真を取得しました')
+          toast.success('画像を確認してください')
         } else {
           console.warn('⚠️ Unsplash画像が見つかりませんでした')
-          toast('料理写真が見つかりませんでした。後で手動で追加できます。', { icon: 'ℹ️' })
+          toast('画像が見つかりませんでした', { icon: 'ℹ️' })
         }
       } catch (imageError) {
         console.error('❌ 画像取得エラー:', imageError)
-        toast('料理写真の取得に失敗しました。後で手動で追加できます。', { icon: 'ℹ️' })
+        toast('料理写真の取得に失敗しました', { icon: 'ℹ️' })
+
+        // エラーの場合もモーダルを表示（画像なしで作成可能）
+        setPendingExtractedData(extracted)
+        setPreviewImageUrl(null)
+        setPreviewDishName(extracted.dishName || extracted.title)
+        setShowImagePreviewModal(true)
       }
     } catch (error) {
       console.error('レシピ抽出エラー:', error)
@@ -588,6 +639,15 @@ export function RecipeForm() {
           </Accordion>
         </div>
       </div>
+
+      {/* 画像プレビューモーダル */}
+      <ImagePreviewModal
+        isOpen={showImagePreviewModal}
+        imageUrl={previewImageUrl}
+        dishName={previewDishName}
+        onConfirm={handleImageConfirm}
+        onClose={() => setShowImagePreviewModal(false)}
+      />
     </div>
   )
 }
